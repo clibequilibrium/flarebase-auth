@@ -87,7 +87,7 @@ export async function verifyIdToken(idToken: string, cache: Cache | undefined = 
 				const { maxAge, response } = await getTtl(url);
 				data = await response.json();
 
-				await cache.p(key, JSON.stringify(data), {
+				await cache.put(key, JSON.stringify(data), {
 					expirationTtl: maxAge
 				});
 			}
