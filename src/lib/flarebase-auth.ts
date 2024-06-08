@@ -264,6 +264,6 @@ export class FlarebaseAuth {
    * @param idToken An Identity Platform ID token
    */
   async verifyIdToken(idToken: string): Promise<DecodedIdToken> {
-    return (await verifyIdToken(idToken)) as any as DecodedIdToken;
+    return (await verifyIdToken(idToken, this.config.cache)) as any as DecodedIdToken;
   }
 }
