@@ -7,6 +7,8 @@ import {
   SignJWT,
 } from 'jose';
 
+import type { Cache } from './cache/cache';
+
 /**
  * Get an OAuth 2.0 token from google authentication apis using
  * a service account
@@ -44,18 +46,61 @@ export async function getAuthToken(
   return oauth.access_token;
 }
 
+async function getTtl(url: string) {
+	const response = await fetch(url);
+
+	// Step 2: Check and parse Cache-Control header
+	const cacheControl = response.headers.get('Cache-Control');
+	if (cacheControl) {
+		const directives = cacheControl.split(',').map((d) => d.trim());
+		const maxAgeDirective = directives.find((d) => d.startsWith('max-age='));
+
+		if (maxAgeDirective) {
+			const maxAge = parseInt(maxAgeDirective.split('=')[1], 10);
+			return { maxAge, response };
+		} else {
+			return { maxAge: 0, response };
+		}
+	} else {
+		return { magAge: 0, response };
+	}
+}
+
 /**
  * Verifies an Identity Platform ID token.
  * If the token is valid, the promise is fulfilled with the token's decoded claims; otherwise, the promise is rejected.
  * @param idToken An Identity Platform ID token
  */
-export async function verifyIdToken(idToken: string): Promise<JWTPayload> {
-  //Fetch public keys
-  //TODO: Public keys should be cached until they expire
-  const res = await fetch(
-    'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com'
-  );
-  const data = await res.json();
+export async function verifyIdToken(idToken: string, cache: Cache | undefined = undefined): Promise<JWTPayload> {
+  let data: any;
+	const url =
+		'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
+
+	if (cache) {
+		const key = 'google-public-keys';
+
+		try {
+			const cachedValue = await cache.get(key);
+			data = cachedValue ? JSON.parse(cachedValue as string) : undefined;
+
+			if (!data) {
+				const { maxAge, response } = await getTtl(url);
+				data = await response.json();
+
+				await cache.p(key, JSON.stringify(data), {
+					expirationTtl: maxAge
+				});
+			}
+		} catch (error) {
+			console.error(error);
+
+			const res = await fetch(url);
+			data = await res.json();
+		}
+	} else {
+		const res = await fetch(url);
+		data = await res.json();
+	}
 
   //Get the correct publicKey from the key id
   const header = decodeProtectedHeader(idToken);

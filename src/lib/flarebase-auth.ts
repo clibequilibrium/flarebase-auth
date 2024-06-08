@@ -232,7 +232,13 @@ export class FlarebaseAuth {
   async verifySessionCookie(sessionCookie: string): Promise<DecodedIdToken> {
     //Fetch google public key
     const res = await fetch(
-      'https://www.googleapis.com/identitytoolkit/v3/relyingparty/publicKeys'
+      'https://www.googleapis.com/identitytoolkit/v3/relyingparty/publicKeys',
+      {
+        cf: {
+          cacheTtl: 60 * 60 * 24,
+          cacheEverything: true
+        }
+      }
     );
 
     const header = decodeProtectedHeader(sessionCookie);
